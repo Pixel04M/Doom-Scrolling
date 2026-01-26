@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/Jetpack%20Compose-Modern%20UI-purple?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose">
 </p>
 
-<h1 align="center">Scrollable ✋📱</h1>
+<h1 align="center">Doom Scrolling 📱</h1>
 <h3 align="center">Scroll your Android phone with simple hand gestures — no touching required</h3>
 
 <p align="center">
