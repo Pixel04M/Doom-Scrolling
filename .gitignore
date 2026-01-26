@@ -13,3 +13,23 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+
+# Android
+*.apk
+*.ap_
+*.dex
+gen/
+out/
+app/build/
+
+# Replit
+.cache/
+.local/
