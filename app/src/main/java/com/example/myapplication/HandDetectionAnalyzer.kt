@@ -39,10 +39,13 @@ class HandDetectionAnalyzer(
                 .setMinHandPresenceConfidence(0.3f) // Lowered for distance detection
                 .setMinTrackingConfidence(0.3f) // Lowered for distance detection
                 .setRunningMode(RunningMode.LIVE_STREAM)
-                .setResultListener { result: HandLandmarkerResult, _: MPImage ->
+                .setResultListener { result: HandLandmarkerResult, mpImage: MPImage ->
                     try {
                         processHandLandmarks(result)
                     } finally {
+                        // Crucial: Close the image associated with this result
+                        // and reset the processing flag here, NOT in analyze()
+                        mpImage.close()
                         isProcessing.set(false)
                     }
                 }
@@ -77,21 +80,20 @@ class HandDetectionAnalyzer(
             
             // IMPORTANT: CameraX provides timestamp in NANOSECONDS.
             // MediaPipe LIVE_STREAM mode expects MILLISECONDS.
-            // Incorrect timestamps (nanos instead of millis) can cause the pipeline to stall or flicker.
             val timestampMs = imageProxy.imageInfo.timestamp / 1_000_000
             
-            // Explicitly verify timestamp is valid for MediaPipe
             if (timestampMs > 0) {
                 handLandmarker?.detectAsync(mpImage, timestampMs)
+            } else {
+                imageProxy.close()
+                isProcessing.set(false)
             }
         } catch (e: Exception) {
             Log.e("HandDetection", "Error analyzing image", e)
-        } finally {
-            // Always close the imageProxy to return the buffer to the camera pipeline.
-            // Failing to close this promptly is the #1 cause of camera freezing/blinking.
             imageProxy.close()
             isProcessing.set(false)
         }
+        // Removed finally block that was closing imageProxy prematurely
     }
 
     private fun processHandLandmarks(result: HandLandmarkerResult) {
