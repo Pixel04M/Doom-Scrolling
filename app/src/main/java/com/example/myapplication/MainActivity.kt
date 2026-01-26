@@ -38,6 +38,10 @@ class MainActivity : ComponentActivity() {
     private var cameraProvider: ProcessCameraProvider? = null
     private var handDetectionAnalyzer: HandDetectionAnalyzer? = null
     private val gestureScrollController = GestureScrollController()
+    
+    // Create a mutable state that can be accessed by both Compose and the Analyzer
+    private val _scrollStatus = mutableStateOf("Ready")
+    val scrollStatusState: State<String> = _scrollStatus
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -70,6 +74,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     MainScreen(
+                        scrollStatus = scrollStatusState,
                         onEnableScrolling = { enableScrolling() },
                         onDisableScrolling = { disableScrolling() },
                         requestCameraPermission = { requestCameraPermission() },
@@ -171,7 +176,7 @@ class MainActivity : ComponentActivity() {
                 if (fingers.isEmpty()) {
                     // PAUSE GESTURE (Five fingers)
                     runOnUiThread {
-                        scrollStatus.value = "Paused"
+                        _scrollStatus.value = "Paused"
                     }
                     gestureScrollController.reset()
                     return@HandDetectionAnalyzer
@@ -182,7 +187,7 @@ class MainActivity : ComponentActivity() {
                     ScrollAccessibilityService.performScroll(it)
                     // Update status text based on scroll direction
                     runOnUiThread {
-                        scrollStatus.value = if (it > 0) "Scrolled Down" else "Scrolled Up"
+                        _scrollStatus.value = if (it > 0) "Scrolled Down" else "Scrolled Up"
                     }
                 }
             } else {
@@ -207,11 +212,13 @@ class MainActivity : ComponentActivity() {
 
     private fun enableScrolling() {
         ScrollAccessibilityService.setEnabled(true)
+        _scrollStatus.value = "Scrolling Enabled"
     }
 
     private fun disableScrolling() {
         ScrollAccessibilityService.setEnabled(false)
         gestureScrollController.reset()
+        _scrollStatus.value = "Ready"
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
@@ -242,6 +249,7 @@ data class PermissionState(
 
 @Composable
 fun MainScreen(
+    scrollStatus: State<String>,
     onEnableScrolling: () -> Unit,
     onDisableScrolling: () -> Unit,
     requestCameraPermission: () -> Unit,
@@ -252,7 +260,6 @@ fun MainScreen(
     val activity = context as? MainActivity
     val permissions = remember { mutableStateOf(checkPermissions()) }
     val isScrollingEnabled = remember { mutableStateOf(false) }
-    val scrollStatus = remember { mutableStateOf("Ready") }
     val previewView = remember { PreviewView(context) }
 
     // Listen for lifecycle changes (like returning from settings) to refresh permissions
@@ -372,10 +379,11 @@ fun MainScreen(
                     isScrollingEnabled.value = !isScrollingEnabled.value
                     if (isScrollingEnabled.value) {
                         onEnableScrolling()
-                        scrollStatus.value = "Scrolling Enabled"
+                        (activity as? MainActivity)?.let {
+                             // This is handled by the member variable now
+                        }
                     } else {
                         onDisableScrolling()
-                        scrollStatus.value = "Ready"
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
