@@ -174,6 +174,10 @@ class MainActivity : ComponentActivity() {
                 )
                 scrollAmount?.let {
                     ScrollAccessibilityService.performScroll(it)
+                    // Update status text based on scroll direction
+                    runOnUiThread {
+                        scrollStatus.value = if (it > 0) "Scrolled Down" else "Scrolled Up"
+                    }
                 }
             } else {
                 gestureScrollController.reset()
@@ -357,53 +361,33 @@ fun MainScreen(
 
         // Control Button
         if (permissions.value.hasCamera && permissions.value.hasAccessibility) {
-            Row(
+            Button(
+                onClick = {
+                    isScrollingEnabled.value = !isScrollingEnabled.value
+                    if (isScrollingEnabled.value) {
+                        onEnableScrolling()
+                        scrollStatus.value = "Scrolling Enabled"
+                    } else {
+                        onDisableScrolling()
+                        scrollStatus.value = "Ready"
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isScrollingEnabled.value) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+                )
             ) {
-                Button(
-                    onClick = {
-                        isScrollingEnabled.value = !isScrollingEnabled.value
-                        if (isScrollingEnabled.value) {
-                            onEnableScrolling()
-                            scrollStatus.value = "Scrolling Enabled"
-                        } else {
-                            onDisableScrolling()
-                            scrollStatus.value = "Ready"
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isScrollingEnabled.value) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        }
-                    )
-                ) {
-                    Text(
-                        text = if (isScrollingEnabled.value) {
-                            "Disable"
-                        } else {
-                            "Enable"
-                        }
-                    )
-                }
-
-                // Test Scrolling Buttons
-                Button(
-                    onClick = { ScrollAccessibilityService.performScroll(300) },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Test Down")
-                }
-
-                Button(
-                    onClick = { ScrollAccessibilityService.performScroll(-300) },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Test Up")
-                }
+                Text(
+                    text = if (isScrollingEnabled.value) {
+                        "Disable Gesture Scrolling"
+                    } else {
+                        "Enable Gesture Scrolling"
+                    }
+                )
             }
         }
 
