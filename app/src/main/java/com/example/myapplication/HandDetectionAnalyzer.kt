@@ -113,19 +113,30 @@ class HandDetectionAnalyzer(
                 return
             }
 
-            // Find index finger position for scrolling
+            // Find index finger position for scrolling or palm for horizontal swipes
             val indexFingerPos = mutableListOf<GestureScrollController.FingerPosition>()
+            val palmPos = mutableListOf<GestureScrollController.FingerPosition>()
+            
             for (hand in hands) {
-                val raisedFingers = extractRaisedFingers(hand)
-                // If only index finger is raised (index is typically index 8)
-                if (raisedFingers.size == 1 && isIndexFinger(hand)) {
-                    indexFingerPos.add(raisedFingers[0])
+                val raisedCount = countRaisedFingers(hand)
+                
+                // Index finger only for vertical scrolling
+                if (raisedCount == 1 && isIndexFinger(hand)) {
+                    indexFingerPos.add(GestureScrollController.FingerPosition(hand[8].x(), hand[8].y()))
+                    break
+                }
+                
+                // Palm (4 or 5 fingers) for horizontal swipes
+                if (raisedCount >= 4) {
+                    palmPos.add(GestureScrollController.FingerPosition(hand[9].x(), hand[9].y())) // Use palm center (landmark 9)
                     break
                 }
             }
             
-            if (indexFingerPos.isNotEmpty()) {
-                onHandsDetected(indexFingerPos)
+            if (palmPos.isNotEmpty()) {
+                onHandsDetected(palmPos) // Send palm for horizontal tracking
+            } else if (indexFingerPos.isNotEmpty()) {
+                onHandsDetected(indexFingerPos) // Send index for vertical tracking
             } else {
                 onHandsDetected(null)
             }

@@ -5,17 +5,17 @@ import kotlin.math.abs
 
 class GestureScrollController {
     
-    private var previousFinger1Y: Float? = null
-    private var previousFinger2Y: Float? = null
-    private var lastScrollTime = 0L
-    private val scrollThreshold = 0.005f // Even lower threshold for high sensitivity
-    private val scrollCooldown = 30L // Faster polling for smooth video app scrolling
+    private var previousFinger1X: Float? = null
+    private val horizontalThreshold = 0.08f // Threshold for horizontal shake/swipe
+    
+    enum class ScrollDirection { VERTICAL, LEFT, RIGHT }
+    data class ScrollResult(val direction: ScrollDirection, val amount: Int)
     
     data class FingerPosition(val x: Float, val y: Float)
     
     fun processFingerMovement(
         fingers: List<FingerPosition>?
-    ): Int? {
+    ): ScrollResult? {
         val currentTime = System.currentTimeMillis()
         
         // PAUSE gesture (empty list from analyzer)
@@ -24,42 +24,58 @@ class GestureScrollController {
             return null
         }
 
-        // Need exactly one finger (index finger) to scroll
+        // Need exactly one finger (index finger) to scroll or a palm for horizontal
         if (fingers == null || fingers.size != 1) {
             return null
         }
         
         val currentFinger = fingers[0]
         
-        // Initialize previous position if needed
-        if (previousFinger1Y == null) {
+        // Initialize previous positions if needed
+        if (previousFinger1Y == null || previousFinger1X == null) {
             previousFinger1Y = currentFinger.y
+            previousFinger1X = currentFinger.x
             lastScrollTime = currentTime
             return null
         }
         
         val deltaY = currentFinger.y - previousFinger1Y!!
+        val deltaX = currentFinger.x - previousFinger1X!!
         
-        // Check threshold and cooldown
-        if (abs(deltaY) < scrollThreshold) {
-            return null
+        // Prioritize Horizontal "Shake" for Next/Prev
+        if (abs(deltaX) > horizontalThreshold) {
+            if (currentTime - lastScrollTime < 400) return null
+            
+            // In normalized coordinates, X increases left to right.
+            // Shake RIGHT (hand moves right) = deltaX is POSITIVE
+            // Shake LEFT (hand moves left) = deltaX is NEGATIVE
+            val direction = if (deltaX > 0) ScrollDirection.RIGHT else ScrollDirection.LEFT
+            
+            previousFinger1X = currentFinger.x
+            previousFinger1Y = currentFinger.y
+            lastScrollTime = currentTime
+            return ScrollResult(direction, 0)
+        }
+
+        // Handle Vertical Scroll
+        if (abs(deltaY) > scrollThreshold) {
+            if (currentTime - lastScrollTime < scrollCooldown) return null
+            
+            val scrollAmount = (deltaY * 5000f).toInt().coerceIn(-1000, 1000)
+            
+            previousFinger1Y = currentFinger.y
+            previousFinger1X = currentFinger.x
+            lastScrollTime = currentTime
+            return ScrollResult(ScrollDirection.VERTICAL, scrollAmount)
         }
         
-        if (currentTime - lastScrollTime < scrollCooldown) {
-            return null
-        }
-        
-        // Amplify movement for YouTube Shorts/TikTok
-        // 5000f makes it extremely snappy for distance flicking
-        val scrollAmount = (deltaY * 5000f).toInt().coerceIn(-1000, 1000)
-        
-        // Update previous position
-        previousFinger1Y = currentFinger.y
-        lastScrollTime = currentTime
-        
-        Log.d("GestureScroll", "DeltaY: $deltaY, ScrollAmount: $scrollAmount")
-        
-        return scrollAmount
+        return null
+    }
+
+    fun reset() {
+        previousFinger1Y = null
+        previousFinger1X = null
+        lastScrollTime = 0L
     }
     
     private fun calculateScrollAmount(deltaY: Float): Int {

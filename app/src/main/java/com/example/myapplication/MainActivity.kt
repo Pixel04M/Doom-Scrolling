@@ -182,16 +182,34 @@ class MainActivity : ComponentActivity() {
                     return@HandDetectionAnalyzer
                 }
 
-                val scrollAmount = gestureScrollController.processFingerMovement(fingers)
-                if (scrollAmount != null) {
-                    ScrollAccessibilityService.performScroll(scrollAmount)
-                    runOnUiThread {
-                        _scrollStatus.value = if (scrollAmount > 0) "SCROLLING DOWN" else "SCROLLING UP"
+                val result = gestureScrollController.processFingerMovement(fingers)
+                if (result != null) {
+                    when (result.direction) {
+                        GestureScrollController.ScrollDirection.VERTICAL -> {
+                            ScrollAccessibilityService.performScroll(result.amount)
+                            runOnUiThread {
+                                _scrollStatus.value = if (result.amount > 0) "SCROLLING DOWN" else "SCROLLING UP"
+                            }
+                        }
+                        GestureScrollController.ScrollDirection.LEFT -> {
+                            // Shake LEFT = Previous Video (Swipe Down gesture in Accessibility)
+                            ScrollAccessibilityService.performScroll(-1000)
+                            runOnUiThread {
+                                _scrollStatus.value = "PREVIOUS VIDEO"
+                            }
+                        }
+                        GestureScrollController.ScrollDirection.RIGHT -> {
+                            // Shake RIGHT = Next Video (Swipe Up gesture in Accessibility)
+                            ScrollAccessibilityService.performScroll(1000)
+                            runOnUiThread {
+                                _scrollStatus.value = "NEXT VIDEO"
+                            }
+                        }
                     }
                 } else {
-                    // If index is detected but not moving enough, show "DETECTED"
+                    // If finger is detected but not moving enough, show "DETECTED"
                     runOnUiThread {
-                        _scrollStatus.value = "INDEX DETECTED - Move to Scroll"
+                        _scrollStatus.value = "HAND DETECTED - Swipe to Control"
                     }
                 }
             } else {
