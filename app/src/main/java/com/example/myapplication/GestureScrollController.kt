@@ -8,23 +8,42 @@ import kotlin.math.abs
  * Handles gesture recognition and scroll command generation
  * 
  * Gestures:
- * - Index finger moved RIGHT → Scroll Down
- * - Index finger moved LEFT → Scroll Up
- * - 5 fingers open → Pause
- * - 5 fingers closed → Unpause
+ * - Move hand RIGHT → Scroll Up
+ * - Move hand LEFT → Scroll Down
+ * - Pinch (thumb tip touches index tip) → Pause
+ * - Release pinch → Resume
  */
 class GestureScrollController {
     
-    // Previous index finger position for movement tracking
+    // Previous tracking for stability
     private var previousIndexX: Float? = null
     private var previousIndexY: Float? = null
+
+    private var lastAngleTriggeredSign: Int = 0
     
     // Pause state
     private var isPaused = false
+
+    // Pause/resume debounce
+    private val pauseToggleCooldown = 800L
+    private var lastPauseToggleTime = 0L
+
+    private val pinchStableMs = 160L
+    private var pinchStartTimeMs: Long? = null
+    private var unpinchStartTimeMs: Long? = null
+
+    private val postToggleScrollSuppressMs = 650L
+    private var suppressScrollUntilMs = 0L
+
+    private val pinchCandidateDistanceSquared = 0.010f
+    private val pinchCandidateSuppressMs = 550L
     
     // Movement thresholds
     private val scrollThreshold = 0.02f // Minimum horizontal movement to trigger scroll
-    private val scrollCooldown = 100L // Minimum time between scrolls (ms)
+    private val scrollCooldown = 140L // Minimum time between scrolls (ms)
+
+    private val minAngleDeg = 18f
+    private val resetAngleDeg = 10f
     
     // Timing
     private var lastScrollTime = 0L
@@ -54,37 +73,99 @@ class GestureScrollController {
             resetTracking()
             return GestureResult(GestureAction.NONE)
         }
+
+        val pinchDist2 = gesture.pinchDistanceSquared
+        if (pinchDist2 != null && pinchDist2 < pinchCandidateDistanceSquared) {
+            suppressScrollUntilMs = maxOf(suppressScrollUntilMs, currentTime + pinchCandidateSuppressMs)
+        }
         
-        // Handle 5 fingers open (pause)
-        if (gesture.isFiveFingersOpen) {
-            if (!isPaused) {
+        if (gesture.isPinching) {
+            unpinchStartTimeMs = null
+            if (pinchStartTimeMs == null) pinchStartTimeMs = currentTime
+
+            val stableFor = currentTime - (pinchStartTimeMs ?: currentTime)
+            if (!isPaused && stableFor >= pinchStableMs && currentTime - lastPauseToggleTime >= pauseToggleCooldown) {
                 isPaused = true
+                lastPauseToggleTime = currentTime
+                suppressScrollUntilMs = currentTime + postToggleScrollSuppressMs
                 resetTracking()
-                Log.d("GestureController", "Pause activated (5 fingers open)")
+                Log.d("GestureController", "Pause activated (pinch stable)")
                 return GestureResult(GestureAction.PAUSE)
             }
+
             return GestureResult(GestureAction.NONE)
+        } else {
+            pinchStartTimeMs = null
         }
-        
-        // Handle 5 fingers closed (unpause)
-        if (gesture.isFiveFingersClosed) {
-            if (isPaused) {
+
+        if (!gesture.isPinching && isPaused) {
+            if (unpinchStartTimeMs == null) unpinchStartTimeMs = currentTime
+            val stableFor = currentTime - (unpinchStartTimeMs ?: currentTime)
+
+            if (stableFor >= pinchStableMs && currentTime - lastPauseToggleTime >= pauseToggleCooldown) {
                 isPaused = false
+                lastPauseToggleTime = currentTime
+                suppressScrollUntilMs = currentTime + postToggleScrollSuppressMs
                 resetTracking()
-                Log.d("GestureController", "Resume activated (5 fingers closed)")
+                Log.d("GestureController", "Resume activated (unpinch stable)")
                 return GestureResult(GestureAction.RESUME)
             }
+
             return GestureResult(GestureAction.NONE)
+        } else {
+            unpinchStartTimeMs = null
         }
         
-        // Handle index finger movement for scrolling (only if not paused)
-        if (gesture.indexFingerPosition != null && !isPaused) {
-            return handleIndexFingerScroll(gesture.indexFingerPosition, currentTime)
+        if (!isPaused) {
+            if (currentTime < suppressScrollUntilMs) {
+                return GestureResult(GestureAction.NONE)
+            }
+            val angle = gesture.indexFingerAngleDeg
+            if (angle != null) {
+                return handleAngleScroll(angle, currentTime)
+            }
         }
         
-        // Unknown gesture state
         resetTracking()
         return GestureResult(GestureAction.NONE)
+    }
+
+    private fun handleAngleScroll(angleDeg: Float, currentTime: Long): GestureResult {
+        // User mapping:
+        // 0..+90 degrees => Scroll Up
+        // 0..-90 degrees => Scroll Down
+        // Ignore anything outside [-90, +90] to avoid accidental triggers.
+        if (angleDeg > 90f || angleDeg < -90f) {
+            return GestureResult(GestureAction.NONE)
+        }
+
+        val absAngle = abs(angleDeg)
+
+        if (absAngle <= resetAngleDeg) {
+            lastAngleTriggeredSign = 0
+        }
+
+        if (currentTime - lastScrollTime < scrollCooldown) {
+            return GestureResult(GestureAction.NONE)
+        }
+
+        if (absAngle < minAngleDeg) {
+            return GestureResult(GestureAction.NONE)
+        }
+
+        val sign = if (angleDeg >= 0f) 1 else -1
+        if (lastAngleTriggeredSign == sign) {
+            return GestureResult(GestureAction.NONE)
+        }
+
+        val scrollAmount = ((absAngle / 90f) * 1200f).toInt().coerceIn(120, 1400)
+        val action = if (sign > 0) GestureAction.SCROLL_UP else GestureAction.SCROLL_DOWN
+
+        lastAngleTriggeredSign = sign
+        lastScrollTime = currentTime
+
+        Log.d("GestureController", "Angle scroll: angle=$angleDeg action=$action amount=$scrollAmount")
+        return GestureResult(action, scrollAmount)
     }
     
     /**
@@ -100,7 +181,9 @@ class GestureScrollController {
         }
         
         val deltaX = indexPosition.x - previousIndexX!!
-        val deltaY = abs(indexPosition.y - previousIndexY!!)
+        val deltaY = indexPosition.y - previousIndexY!!
+        val deltaXAbs = abs(deltaX)
+        val deltaYAbs = abs(deltaY)
         
         // Check cooldown
         if (currentTime - lastScrollTime < scrollCooldown) {
@@ -110,16 +193,16 @@ class GestureScrollController {
             return GestureResult(GestureAction.NONE)
         }
         
-        // Only scroll if horizontal movement is significant and vertical movement is minimal
-        // Index finger moved RIGHT (positive deltaX) → Scroll Down
-        // Index finger moved LEFT (negative deltaX) → Scroll Up
-        if (abs(deltaX) > scrollThreshold && deltaY < scrollThreshold * 2) {
-            // Calculate scroll amount based on horizontal movement distance
-            val scrollAmount = (abs(deltaX) * 10000f).toInt().coerceIn(50, 1000)
+        // Horizontal control:
+        // - Move RIGHT -> Scroll Up
+        // - Move LEFT  -> Scroll Down
+        // Require vertical movement to be relatively small to avoid accidental triggers.
+        if (deltaXAbs > scrollThreshold && deltaYAbs < scrollThreshold * 2) {
+            val scrollAmount = (deltaXAbs * 10000f).toInt().coerceIn(80, 1400)
             val direction = if (deltaX > 0) {
-                GestureAction.SCROLL_DOWN // Right = Scroll Down
+                GestureAction.SCROLL_UP
             } else {
-                GestureAction.SCROLL_UP // Left = Scroll Up
+                GestureAction.SCROLL_DOWN
             }
             
             previousIndexX = indexPosition.x
@@ -129,7 +212,10 @@ class GestureScrollController {
             Log.d("GestureController", "Scroll detected: $direction, amount: $scrollAmount, deltaX: $deltaX")
             return GestureResult(direction, scrollAmount)
         } else {
-            Log.d("GestureController", "Movement too small: deltaX=$deltaX (threshold=$scrollThreshold), deltaY=$deltaY")
+            Log.d(
+                "GestureController",
+                "Movement too small: deltaX=$deltaX (threshold=$scrollThreshold), deltaYAbs=$deltaYAbs"
+            )
         }
         
         // Update position even if no scroll
@@ -145,6 +231,7 @@ class GestureScrollController {
     private fun resetTracking() {
         previousIndexX = null
         previousIndexY = null
+        lastAngleTriggeredSign = 0
     }
     
     /**
@@ -154,6 +241,9 @@ class GestureScrollController {
         resetTracking()
         isPaused = false
         lastScrollTime = 0L
+        lastPauseToggleTime = 0L
+        pinchStartTimeMs = null
+        unpinchStartTimeMs = null
     }
     
     /**

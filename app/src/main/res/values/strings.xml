@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Scrollable</string>
+    <string name="app_name">Doom Scrolling</string>
     <string name="enable_scrolling">Enable Gesture Scrolling</string>
     <string name="disable_scrolling">Disable Gesture Scrolling</string>
     <string name="camera_permission_required">Camera permission is required</string>

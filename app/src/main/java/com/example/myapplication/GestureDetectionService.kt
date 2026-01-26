@@ -3,6 +3,7 @@ package com.example.myapplication
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.IBinder
 import androidx.camera.core.*
@@ -36,6 +37,10 @@ class GestureDetectionService : Service(), LifecycleOwner {
         private var instance: GestureDetectionService? = null
         private var statusCallback: StatusCallback? = null
 
+        private const val STATUS_THROTTLE_MS = 200L
+        private var lastStatusTimeMs = 0L
+        private var lastStatusValue: String? = null
+
         fun start(context: Context) {
             val intent = Intent(context, GestureDetectionService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -55,6 +60,15 @@ class GestureDetectionService : Service(), LifecycleOwner {
         }
 
         private fun updateStatus(status: String) {
+            val now = System.currentTimeMillis()
+            if (status == lastStatusValue && now - lastStatusTimeMs < STATUS_THROTTLE_MS) {
+                return
+            }
+            if (now - lastStatusTimeMs < STATUS_THROTTLE_MS) {
+                return
+            }
+            lastStatusTimeMs = now
+            lastStatusValue = status
             android.util.Log.d("GestureService", "Updating status: $status, callback: ${statusCallback != null}")
             statusCallback?.onStatusChanged(status)
         }
@@ -137,30 +151,31 @@ class GestureDetectionService : Service(), LifecycleOwner {
                                     }
                                 }
                                 GestureScrollController.GestureAction.PAUSE -> {
-                                    ScrollAccessibilityService.setEnabled(false)
-                                    updateStatus("PAUSED - Close 5 fingers to resume")
+                                    if (ScrollAccessibilityService.isEnabled()) {
+                                        ScrollAccessibilityService.performTap()
+                                    }
+                                    updateStatus("PAUSED - Separate thumb and index to resume")
                                 }
                                 GestureScrollController.GestureAction.RESUME -> {
-                                    ScrollAccessibilityService.setEnabled(true)
-                                    updateStatus("RESUMED - Move index finger left/right to scroll")
+                                    if (ScrollAccessibilityService.isEnabled()) {
+                                        ScrollAccessibilityService.performTap()
+                                    }
+                                    updateStatus("RESUMED - Angle 0..+90 up, 0..-90 down")
                                 }
                                 GestureScrollController.GestureAction.NONE -> {
                                     when {
-                                        gesture.isFiveFingersOpen -> {
-                                            updateStatus("5 FINGERS OPEN - PAUSED")
-                                        }
-                                        gesture.isFiveFingersClosed -> {
-                                            updateStatus("5 FINGERS CLOSED - Ready to resume")
+                                        gesture.isPinching -> {
+                                            updateStatus("PINCH - PAUSE")
                                         }
                                         gesture.indexFingerPosition != null -> {
                                             if (gestureScrollController.isPaused()) {
-                                                updateStatus("PAUSED - Close 5 fingers to resume")
+                                                updateStatus("PAUSED - Separate thumb and index to resume")
                                             } else {
-                                                updateStatus("INDEX FINGER DETECTED - Move left/right to scroll")
+                                                updateStatus("HAND DETECTED - Angle 0..+90 up, 0..-90 down")
                                             }
                                         }
                                         else -> {
-                                            updateStatus("HAND DETECTED")
+                                            updateStatus("Angle 0..+90 up, 0..-90 down")
                                         }
                                     }
                                 }
@@ -174,7 +189,7 @@ class GestureDetectionService : Service(), LifecycleOwner {
                         
                         isCameraBound = true
                         android.util.Log.d("GestureService", "Camera bound successfully, gesture detection started")
-                        updateStatus("Ready - Show index finger to scroll")
+                        updateStatus("Ready - Angle 0..+90 up, 0..-90 down. Pinch to pause.")
                     } catch (e: Exception) {
                         android.util.Log.e("GestureService", "Error binding camera", e)
                         updateStatus("Error: ${e.message}")
@@ -199,6 +214,10 @@ class GestureDetectionService : Service(), LifecycleOwner {
             .setContentText("Gesture detection is running in the background.")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setShowWhen(false)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()
     }
 
@@ -207,8 +226,12 @@ class GestureDetectionService : Service(), LifecycleOwner {
             val serviceChannel = NotificationChannel(
                 CHANNEL_ID,
                 "Gesture Detection Service Channel",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_MIN
             )
+            serviceChannel.setShowBadge(false)
+            serviceChannel.enableVibration(false)
+            serviceChannel.enableLights(false)
+            serviceChannel.setSound(null, null)
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)
         }

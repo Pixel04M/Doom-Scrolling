@@ -51,6 +51,8 @@ class MainActivity : ComponentActivity() {
     private val _isScrollingEnabledPersisted = mutableStateOf(false)
     val isScrollingEnabledState: State<Boolean> = _isScrollingEnabledPersisted
 
+    private var isInForeground: Boolean = false
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -89,11 +91,11 @@ class MainActivity : ComponentActivity() {
         // Auto-start service if it was previously enabled
         if (_isScrollingEnabledPersisted.value) {
             ScrollAccessibilityService.setEnabled(true)
-            // Start service in background after a delay to let UI initialize
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                GestureDetectionService.start(this)
-                _scrollStatus.value = "Service starting..."
-            }, 500)
+            _scrollStatus.value = if (ScrollAccessibilityService.getInstance() == null) {
+                "Accessibility Service NOT connected. Please enable it in Settings."
+            } else {
+                "Ready - Move hand right (scroll up) or left (scroll down). Pinch to pause."
+            }
         }
 
         lifecycle.addObserver(lifecycleObserver)
@@ -165,26 +167,46 @@ class MainActivity : ComponentActivity() {
         // For now, we ensure the camera provider isn't unbinded.
     }
 
+    override fun onStart() {
+        super.onStart()
+        isInForeground = true
+
+        // If gesture scrolling is enabled, stop background service to avoid camera contention
+        if (_isScrollingEnabledPersisted.value) {
+            GestureDetectionService.stop(this)
+        }
+    }
+
     override fun onStop() {
         super.onStop()
-        // If scrolling is enabled, we ideally want to keep the analysis running.
-        // However, Android restricts camera access in the background for privacy.
+        isInForeground = false
+
+        // Start service only when app goes to background and gesture scrolling is enabled
+        if (_isScrollingEnabledPersisted.value) {
+            try {
+                cameraProvider?.unbindAll()
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Error unbinding camera before background service", e)
+            }
+            GestureDetectionService.start(this)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Unregister status callback
+        GestureDetectionService.setStatusCallback(null)
+        cameraExecutor.shutdown()
+        handDetectionAnalyzer?.release()
     }
 
     override fun onResume() {
         super.onResume()
-        // Re-bind if needed or refresh state
-        // Only bind if service is not running, otherwise service handles camera
+
+        // If gesture scrolling is enabled, we run in-foreground detection via Activity.
+        // Service will be used only when app goes to background.
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            if (!isScrollingEnabledState.value) {
-                // Only bind if service is not running
-                bindCameraUseCases()
-            } else {
-                // Service is running, just bind preview after a delay
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    bindCameraUseCases()
-                }, 500)
-            }
+            bindCameraUseCases()
         }
     }
 
@@ -212,9 +234,9 @@ class MainActivity : ComponentActivity() {
 
         val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
-        // Only bind Analysis in MainActivity if the background service is NOT running
-        // This prevents the "camera freeze" when two lifecycles try to grab the analyzer
-        val isServiceRunning = isScrollingEnabledState.value
+        // Activity always owns preview + analysis while app is open.
+        // Background service starts only when app goes to background.
+        val isServiceRunning = false
 
         try {
             // Only unbind if service is not running, otherwise let service handle it
@@ -299,35 +321,29 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 GestureScrollController.GestureAction.PAUSE -> {
-                    ScrollAccessibilityService.setEnabled(false)
+                    if (ScrollAccessibilityService.isEnabled()) {
+                        ScrollAccessibilityService.performTap()
+                    }
                     runOnUiThread {
-                        _scrollStatus.value = "PAUSED - Close 5 fingers to resume"
+                        _scrollStatus.value = "PAUSED - Separate thumb and index to resume"
                     }
                 }
                 GestureScrollController.GestureAction.RESUME -> {
-                    ScrollAccessibilityService.setEnabled(true)
+                    if (ScrollAccessibilityService.isEnabled()) {
+                        ScrollAccessibilityService.performTap()
+                    }
                     runOnUiThread {
-                        _scrollStatus.value = "RESUMED - Move index finger left/right to scroll"
+                        _scrollStatus.value = "RESUMED - Rotate/move finger angle + (up) / - (down). Pinch pauses."
                     }
                 }
                 GestureScrollController.GestureAction.NONE -> {
                     runOnUiThread {
                         when {
-                            gesture.isFiveFingersOpen -> {
-                                _scrollStatus.value = "5 FINGERS OPEN - PAUSED"
-                            }
-                            gesture.isFiveFingersClosed -> {
-                                _scrollStatus.value = "5 FINGERS CLOSED - Ready to resume"
-                            }
-                            gesture.indexFingerPosition != null -> {
-                                if (gestureScrollController.isPaused()) {
-                                    _scrollStatus.value = "PAUSED - Close 5 fingers to resume"
-                                } else {
-                                    _scrollStatus.value = "INDEX FINGER DETECTED - Move left/right to scroll"
-                                }
+                            gesture.isPinching -> {
+                                _scrollStatus.value = "PINCH - PAUSE"
                             }
                             else -> {
-                                _scrollStatus.value = "HAND DETECTED"
+                                _scrollStatus.value = "Angle control: 0..+90 = scroll up, 0..-90 = scroll down"
                             }
                         }
                     }
@@ -344,43 +360,28 @@ class MainActivity : ComponentActivity() {
         // Ensure accessibility service is enabled
         ScrollAccessibilityService.setEnabled(true)
         
-        _scrollStatus.value = "Starting service..."
-        android.util.Log.d("MainActivity", "Enabling scrolling, accessibility enabled: ${ScrollAccessibilityService.isEnabled()}")
-        
-        // Unbind camera from activity first
-        try {
-            cameraProvider?.unbindAll()
-        } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "Error unbinding camera before service start", e)
+        // Foreground mode: keep camera in Activity so UI keeps working.
+        // Background mode: service will start in onStop().
+        GestureDetectionService.stop(this)
+        _scrollStatus.value = if (ScrollAccessibilityService.getInstance() == null) {
+            "Accessibility Service NOT connected. Please enable it in Settings."
+        } else {
+            "Ready - Angle 0..+90 up, 0..-90 down. Pinch to pause."
         }
-        
-        // Start background service
-        GestureDetectionService.start(this)
-        
-        // Update status after service starts
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            // Check if accessibility service is actually connected
-            if (ScrollAccessibilityService.getInstance() == null) {
-                _scrollStatus.value = "Accessibility Service NOT connected. Please enable it in Settings."
-            } else {
-                _scrollStatus.value = "Ready - Show index finger to scroll"
-            }
-            bindCameraUseCases()
-        }, 1500) // Longer delay to ensure service binds camera first
+
+        bindCameraUseCases()
     }
 
     private fun disableScrolling() {
         _isScrollingEnabledPersisted.value = false
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, false).apply()
         
-        // Stop background service first
+        // Stop background service
         GestureDetectionService.stop(this)
-        
-        // Wait for service to release camera, then re-bind camera
-        // Activity should now handle both preview and analysis
+        // Rebind camera for local preview/analyzer
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             bindCameraUseCases()
-        }, 600) // Wait for service to unbind camera first
+        }, 300)
         
         gestureScrollController.reset()
         _scrollStatus.value = "Ready"
@@ -400,13 +401,6 @@ class MainActivity : ComponentActivity() {
         startActivity(intent)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        // Unregister status callback
-        GestureDetectionService.setStatusCallback(null)
-        cameraExecutor.shutdown()
-        handDetectionAnalyzer?.release()
-    }
 }
 
 data class PermissionState(
@@ -427,7 +421,11 @@ fun MainScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val activity = context as? MainActivity
     val permissions = remember { mutableStateOf(checkPermissions()) }
-    val previewView = remember { PreviewView(context) }
+    val previewView = remember {
+        PreviewView(context).apply {
+            scaleType = PreviewView.ScaleType.FIT_CENTER
+        }
+    }
 
     // Listen for lifecycle changes (like returning from settings) to refresh permissions
     DisposableEffect(lifecycleOwner) {
@@ -467,12 +465,16 @@ fun MainScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         // Camera Preview
-        AndroidView(
-            factory = { previewView },
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(400.dp)
-        )
+        ) {
+            AndroidView(
+                factory = { previewView },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         // Status
         Card(
@@ -587,15 +589,19 @@ fun MainScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "• Hold up two fingers in front of the front camera",
+                    text = "• Hold up your index finger in front of the front camera",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = "• Move fingers up to scroll down",
+                    text = "• Move finger LEFT to scroll down",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = "• Move fingers down to scroll up",
+                    text = "• Move finger RIGHT to scroll up",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "• Open 5 fingers to pause, close 5 fingers to resume",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
