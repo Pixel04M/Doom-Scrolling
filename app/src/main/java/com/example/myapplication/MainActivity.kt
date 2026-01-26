@@ -2,9 +2,11 @@ package com.example.myapplication
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
@@ -269,7 +271,8 @@ class MainActivity : ComponentActivity() {
         _isScrollingEnabledPersisted.value = true
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, true).apply()
         _scrollStatus.value = "Scrolling Enabled"
-        // Force camera to start if it hasn't already
+        // Start background service
+        GestureDetectionService.start(this)
         startCamera()
     }
 
@@ -277,6 +280,8 @@ class MainActivity : ComponentActivity() {
         ScrollAccessibilityService.setEnabled(false)
         _isScrollingEnabledPersisted.value = false
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, false).apply()
+        // Stop background service
+        GestureDetectionService.stop(this)
         gestureScrollController.reset()
         _scrollStatus.value = "Ready"
     }
@@ -439,6 +444,12 @@ fun MainScreen(
                     if (isScrollingEnabledState.value) {
                         onDisableScrolling()
                     } else {
+                        // Request notification permission for Foreground Service on Android 13+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                (context as? androidx.activity.ComponentActivity)?.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+                            }
+                        }
                         onEnableScrolling()
                     }
                 },
