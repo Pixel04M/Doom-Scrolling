@@ -199,4 +199,9 @@ class HandDetectionAnalyzer(
         }
         handLandmarker = null
     }
+
+    private fun Bitmap.rotate(degrees: Float): Bitmap {
+        val matrix = android.graphics.Matrix().apply { postRotate(degrees) }
+        return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+    }
 }

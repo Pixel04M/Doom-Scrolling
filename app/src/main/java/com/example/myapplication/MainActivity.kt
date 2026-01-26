@@ -169,7 +169,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun bindCameraUseCases() {
-        val cameraProvider = cameraProvider ?: return
+        val cameraProvider = cameraProvider
+        if (cameraProvider == null) {
+            startCamera()
+            return
+        }
         val previewView = previewView ?: return
 
         // Set resolution to a standard 4:3 or 16:9 for stability
@@ -265,6 +269,8 @@ class MainActivity : ComponentActivity() {
         _isScrollingEnabledPersisted.value = true
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, true).apply()
         _scrollStatus.value = "Scrolling Enabled"
+        // Force camera to start if it hasn't already
+        startCamera()
     }
 
     private fun disableScrolling() {
