@@ -1,10 +1,6 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/Hand%20Gestures-Scrollable-blue?style=for-the-badge&logo=hand&logoColor=white" alt="Hand Gestures">
-  <img src="https://img.shields.io/badge/MediaPipe-Hands-success?style=for-the-badge&logoColor=white" alt="MediaPipe">
-  <img src="https://img.shields.io/badge/Jetpack%20Compose-Modern%20UI-purple?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose">
-</p>
 
-<h1 align="center">Doom Scrolling 📱</h1>
+
+<h1 align="center">Doom Scrolling </h1>
 <h3 align="center">Scroll your Android phone with simple hand gestures — no touching required</h3>
 
 <p align="center">
