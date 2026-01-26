@@ -8,8 +8,8 @@ class GestureScrollController {
     private var previousFinger1Y: Float? = null
     private var previousFinger2Y: Float? = null
     private var lastScrollTime = 0L
-    private val scrollThreshold = 0.02f // Minimum movement to trigger scroll (normalized coordinates)
-    private val scrollCooldown = 50L // Minimum time between scrolls (ms)
+    private val scrollThreshold = 0.01f // Lowered threshold for distance detection (smaller movements)
+    private val scrollCooldown = 40L // Slightly faster scrolling
     
     data class FingerPosition(val x: Float, val y: Float)
     
@@ -41,19 +41,17 @@ class GestureScrollController {
         
         // Check threshold and cooldown
         if (abs(deltaY) < scrollThreshold) {
-            previousFinger1Y = finger1.y
-            previousFinger2Y = finger2.y
+            // Don't update previous positions here to allow accumulation of small movements
             return null
         }
         
         if (currentTime - lastScrollTime < scrollCooldown) {
-            previousFinger1Y = finger1.y
-            previousFinger2Y = finger2.y
             return null
         }
         
         // Calculate scroll amount based on movement speed and distance
-        val scrollAmount = calculateScrollAmount(deltaY)
+        // We use 3000f to make it very sensitive for distance
+        val scrollAmount = (deltaY * 3000f).toInt().coerceIn(-600, 600)
         
         // Update previous positions
         previousFinger1Y = finger1.y

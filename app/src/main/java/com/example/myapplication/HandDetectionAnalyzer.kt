@@ -35,9 +35,9 @@ class HandDetectionAnalyzer(
             val handLandmarkerOptions = HandLandmarker.HandLandmarkerOptions.builder()
                 .setBaseOptions(baseOptions)
                 .setNumHands(2)
-                .setMinHandDetectionConfidence(0.5f)
-                .setMinHandPresenceConfidence(0.5f)
-                .setMinTrackingConfidence(0.5f)
+                .setMinHandDetectionConfidence(0.3f) // Lowered for distance detection
+                .setMinHandPresenceConfidence(0.3f) // Lowered for distance detection
+                .setMinTrackingConfidence(0.3f) // Lowered for distance detection
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setResultListener { result: HandLandmarkerResult, _: MPImage ->
                     try {
@@ -140,7 +140,7 @@ class HandDetectionAnalyzer(
                     else -> tipY
                 }
                 
-                if (tipY < baseY - 0.05f) {
+                if (tipY < baseY - 0.03f) { // Slightly lower threshold for distance (fingers appear smaller)
                     fingerTips.add(GestureScrollController.FingerPosition(landmark.x(), landmark.y()))
                 }
             }
