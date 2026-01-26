@@ -57,4 +57,8 @@ This is a native Android application that **cannot run directly in the Replit en
 - Detection thresholds adjustable in `HandDetectionAnalyzer.kt`
 
 ## Recent Changes
-- Initial import to Replit (January 2026)
+- Fixed camera blinking issue by improving buffer management (January 2026)
+- Resolved Android 15/16 compatibility by adding 16KB page size alignment support (January 2026)
+- Improved permission handling to refresh UI instantly upon returning from settings (January 2026)
+- Enhanced scrolling responsiveness and fixed gesture direction (January 2026)
+- Enabled background camera access permissions for continuous gesture detection (January 2026)
