@@ -103,13 +103,23 @@ class HandDetectionAnalyzer(
                 return
             }
 
-            // Check for wide open hand (pause gesture)
+            // Check for wide open hand (pause gesture - 5 fingers)
             val isWideOpen = hands.any { hand ->
                 countRaisedFingers(hand) >= 5
             }
 
+            // Check for closed fist (unpause gesture - 0 fingers)
+            val isFist = hands.any { hand ->
+                countRaisedFingers(hand) == 0
+            }
+
             if (isWideOpen) {
                 onHandsDetected(emptyList()) // Special case: empty list means PAUSE
+                return
+            }
+
+            if (isFist) {
+                onHandsDetected(listOf(GestureScrollController.FingerPosition(-1f, -1f))) // Special case: -1 means UNPAUSE
                 return
             }
 

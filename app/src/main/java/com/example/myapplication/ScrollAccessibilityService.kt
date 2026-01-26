@@ -82,15 +82,22 @@ class ScrollAccessibilityService : AccessibilityService() {
         // To SCROLL UP -> Swipe DOWN (startY -> larger endY)
         
         // We amplify deltaY for standard scrolling to make it more definitive
-        val swipeAmplify = if (Math.abs(deltaY) < 500) deltaY * 2 else deltaY
-        val endY = (startY - swipeAmplify).coerceIn(200f, 2200f)
+        // For YouTube/TikTok we need a strong vertical motion
+        val swipeAmplify = if (Math.abs(deltaY) >= 1000) {
+            // This is a navigation swipe (shake) - make it a full screen swipe
+            1200
+        } else {
+            deltaY * 3 // Regular scroll
+        }
+        
+        val endY = (startY - (if (deltaY > 0) swipeAmplify else -swipeAmplify)).coerceIn(200f, 2200f)
         
         val path = Path()
         path.moveTo(startX, startY)
         path.lineTo(startX, endY)
         
         // YouTube Shorts/TikTok require very fast, short duration swipes to trigger navigation
-        val duration = if (Math.abs(deltaY) > 500) 40L else 100L 
+        val duration = if (Math.abs(deltaY) >= 1000) 40L else 100L 
         
         val strokeDescription = GestureDescription.StrokeDescription(path, 0, duration)
         val gestureDescription = GestureDescription.Builder()

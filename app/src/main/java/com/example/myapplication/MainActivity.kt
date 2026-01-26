@@ -199,16 +199,22 @@ class MainActivity : ComponentActivity() {
                     if (ScrollAccessibilityService.isEnabled()) {
                         ScrollAccessibilityService.setEnabled(false)
                         runOnUiThread {
-                            _scrollStatus.value = "PAUSED (Close Hand/Show Index to Resume)"
+                            _scrollStatus.value = "PAUSED (Close Fist to Resume)"
                         }
                     }
                     gestureScrollController.reset()
                     return@HandDetectionAnalyzer
                 }
 
-                // UNPAUSE GESTURE (Any non-empty finger detection resumes service)
-                if (!ScrollAccessibilityService.isEnabled()) {
-                    ScrollAccessibilityService.setEnabled(true)
+                // UNPAUSE GESTURE (Closed fist / punch)
+                if (fingers.size == 1 && fingers[0].x == -1f) {
+                    if (!ScrollAccessibilityService.isEnabled()) {
+                        ScrollAccessibilityService.setEnabled(true)
+                        runOnUiThread {
+                            _scrollStatus.value = "RESUMED"
+                        }
+                    }
+                    return@HandDetectionAnalyzer
                 }
 
                 val result = gestureScrollController.processFingerMovement(fingers)

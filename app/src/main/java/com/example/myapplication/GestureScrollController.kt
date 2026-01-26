@@ -35,6 +35,9 @@ class GestureScrollController {
         
         val currentFinger = fingers[0]
         
+        // Skip unpause marker
+        if (currentFinger.x == -1f) return null
+        
         // Initialize previous positions if needed
         if (previousFinger1Y == null || previousFinger1X == null) {
             previousFinger1Y = currentFinger.y
