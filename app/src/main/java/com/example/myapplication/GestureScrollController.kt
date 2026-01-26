@@ -65,7 +65,8 @@ class GestureScrollController {
         if (abs(deltaY) > scrollThreshold) {
             if (currentTime - lastScrollTime < scrollCooldown) return null
             
-            val scrollAmount = (deltaY * 5000f).toInt().coerceIn(-1000, 1000)
+            // Further amplify for distance stability
+            val scrollAmount = (deltaY * 6000f).toInt().coerceIn(-1200, 1200)
             
             previousFinger1Y = currentFinger.y
             previousFinger1X = currentFinger.x

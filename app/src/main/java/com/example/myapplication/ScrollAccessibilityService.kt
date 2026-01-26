@@ -75,20 +75,22 @@ class ScrollAccessibilityService : AccessibilityService() {
 
     private fun createScrollGesture(deltaY: Int): GestureDescription {
         val startX = 540f // Center of 1080p screen
-        val startY = 1200f // Lower middle
+        val startY = 1500f // Start lower for more swipe range
         
-        // For NEXT video (Shake Right): We need to swipe UP (startY -> low endY)
-        // For PREV video (Shake Left): We need to swipe DOWN (startY -> high endY)
-        // Vertical Scroll: Small deltas
+        // Android swipe direction is inverted for scrolling
+        // To SCROLL DOWN -> Swipe UP (startY -> smaller endY)
+        // To SCROLL UP -> Swipe DOWN (startY -> larger endY)
         
-        val endY = (startY - deltaY).coerceIn(100f, 2200f)
+        // We amplify deltaY for standard scrolling to make it more definitive
+        val swipeAmplify = if (Math.abs(deltaY) < 500) deltaY * 2 else deltaY
+        val endY = (startY - swipeAmplify).coerceIn(200f, 2200f)
         
         val path = Path()
         path.moveTo(startX, startY)
         path.lineTo(startX, endY)
         
-        // Very fast duration for "flicking"
-        val duration = if (Math.abs(deltaY) > 500) 50L else 80L
+        // YouTube Shorts/TikTok require very fast, short duration swipes to trigger navigation
+        val duration = if (Math.abs(deltaY) > 500) 40L else 100L 
         
         val strokeDescription = GestureDescription.StrokeDescription(path, 0, duration)
         val gestureDescription = GestureDescription.Builder()
