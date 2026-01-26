@@ -187,11 +187,42 @@ class MainActivity : ComponentActivity() {
 
         val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
-        val imageAnalysis = androidx.camera.core.ImageAnalysis.Builder()
-            .setTargetResolution(android.util.Size(1280, 720))
-            .setBackpressureStrategy(androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build()
+        // Only bind Analysis in MainActivity if the background service is NOT running
+        // This prevents the "camera freeze" when two lifecycles try to grab the analyzer
+        val isServiceRunning = isScrollingEnabledState.value
 
+        try {
+            cameraProvider.unbindAll()
+            
+            if (isServiceRunning) {
+                // If service is running, Activity ONLY shows the preview
+                cameraProvider.bindToLifecycle(
+                    this,
+                    cameraSelector,
+                    preview
+                )
+            } else {
+                // If service is NOT running, Activity handles both preview and analysis
+                val imageAnalysis = androidx.camera.core.ImageAnalysis.Builder()
+                    .setTargetResolution(android.util.Size(1280, 720))
+                    .setBackpressureStrategy(androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+
+                setupAnalyzer(imageAnalysis)
+                
+                cameraProvider.bindToLifecycle(
+                    this,
+                    cameraSelector,
+                    preview,
+                    imageAnalysis
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun setupAnalyzer(imageAnalysis: androidx.camera.core.ImageAnalysis) {
         handDetectionAnalyzer = HandDetectionAnalyzer(this) { fingers ->
             if (fingers != null) {
                 if (fingers.isEmpty()) {
@@ -227,14 +258,12 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         GestureScrollController.ScrollDirection.LEFT -> {
-                            // Shake LEFT = Previous Video (Swipe Down gesture in Accessibility)
                             ScrollAccessibilityService.performScroll(-1000)
                             runOnUiThread {
                                 _scrollStatus.value = "PREVIOUS VIDEO"
                             }
                         }
                         GestureScrollController.ScrollDirection.RIGHT -> {
-                            // Shake RIGHT = Next Video (Swipe Up gesture in Accessibility)
                             ScrollAccessibilityService.performScroll(1000)
                             runOnUiThread {
                                 _scrollStatus.value = "NEXT VIDEO"
@@ -242,7 +271,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 } else {
-                    // If finger is detected but not moving enough, show "DETECTED"
                     runOnUiThread {
                         _scrollStatus.value = "HAND DETECTED - Swipe to Control"
                     }
@@ -256,38 +284,31 @@ class MainActivity : ComponentActivity() {
                 gestureScrollController.reset()
             }
         }
-
         imageAnalysis.setAnalyzer(cameraExecutor, handDetectionAnalyzer!!)
-
-        try {
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                this,
-                cameraSelector,
-                preview,
-                imageAnalysis
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     private fun enableScrolling() {
-        ScrollAccessibilityService.setEnabled(true)
         _isScrollingEnabledPersisted.value = true
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, true).apply()
         _scrollStatus.value = "Scrolling Enabled"
+        
         // Start background service
         GestureDetectionService.start(this)
-        startCamera()
+        
+        // Re-bind camera: Activity should now only show preview, Service handles analysis
+        bindCameraUseCases()
     }
 
     private fun disableScrolling() {
-        ScrollAccessibilityService.setEnabled(false)
         _isScrollingEnabledPersisted.value = false
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, false).apply()
+        
         // Stop background service
         GestureDetectionService.stop(this)
+        
+        // Re-bind camera: Activity should now handle both preview and analysis
+        bindCameraUseCases()
+        
         gestureScrollController.reset()
         _scrollStatus.value = "Ready"
     }
