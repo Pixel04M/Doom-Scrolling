@@ -92,8 +92,11 @@ class HandDetectionAnalyzer(
             Log.e("HandDetection", "Error analyzing image", e)
             imageProxy.close()
             isProcessing.set(false)
+        } finally {
+            // Re-adding the close here for the imageProxy itself
+            // The mpImage has its own copy of the bitmap
+            imageProxy.close()
         }
-        // Removed finally block that was closing imageProxy prematurely
     }
 
     private fun processHandLandmarks(result: HandLandmarkerResult) {
