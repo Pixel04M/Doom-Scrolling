@@ -30,8 +30,7 @@
 - Smart movement filtering — ignores tiny accidental twitches  
 - Comfortable range — works great from arm's length or farther  
 
-https://user-images.githubusercontent.com/xxxxxxxx/xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.mp4  
-*(replace with your actual demo GIF/video link)*
+
 
 ---
 
