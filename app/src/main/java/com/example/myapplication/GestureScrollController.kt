@@ -67,13 +67,14 @@ class GestureScrollController {
     
     private fun calculateScrollAmount(deltaY: Float): Int {
         // Convert normalized movement (0-1) to scroll amount
-        // Negative deltaY (fingers moving up) = scroll down (positive scroll)
-        // Positive deltaY (fingers moving down) = scroll up (negative scroll)
-        // Scale normalized movement to scroll pixels (multiply by screen height equivalent)
-        val baseScroll = (deltaY * 1000f).toInt()
+        // Negative deltaY (fingers moving up) = fingers moving AWAY from bottom = scroll DOWN
+        // Positive deltaY (fingers moving down) = fingers moving TOWARDS bottom = scroll UP
+        
+        // We need to amplify the movement. 2000f gives more responsiveness.
+        val scrollAmount = (deltaY * 2000f).toInt()
         
         // Clamp scroll amount to reasonable range
-        return baseScroll.coerceIn(-200, 200)
+        return scrollAmount.coerceIn(-500, 500)
     }
     
     fun reset() {

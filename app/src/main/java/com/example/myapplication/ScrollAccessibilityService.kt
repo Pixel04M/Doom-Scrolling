@@ -73,16 +73,23 @@ class ScrollAccessibilityService : AccessibilityService() {
 
     private fun createScrollGesture(deltaY: Int): GestureDescription {
         // Create a vertical swipe gesture
-        // Use screen center coordinates
-        val startX = 500f
-        val startY = 1000f
-        val endY = startY - deltaY.coerceIn(-300, 300) // Limit scroll distance
+        // Screen center coordinates (approximated for most devices)
+        val startX = 540f // Middle of a 1080p screen
+        val startY = 1200f // Lower middle
+        
+        // In Android Gestures:
+        // Swiping UP (Start 1200 -> End 800) SCROLLS DOWN
+        // Swiping DOWN (Start 1200 -> End 1600) SCROLLS UP
+        // deltaY is (currentAvgY - previousAvgY)
+        // If fingers move UP, deltaY is NEGATIVE. We want to SWIPE UP to scroll DOWN.
+        val endY = startY + deltaY // Swipe in the same direction as finger movement
         
         val path = Path()
         path.moveTo(startX, startY)
         path.lineTo(startX, endY)
         
-        val strokeDescription = GestureDescription.StrokeDescription(path, 0, 150)
+        // Use a short duration for more immediate scrolling
+        val strokeDescription = GestureDescription.StrokeDescription(path, 0, 80)
         val gestureDescription = GestureDescription.Builder()
             .addStroke(strokeDescription)
             .build()
