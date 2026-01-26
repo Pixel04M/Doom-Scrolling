@@ -24,6 +24,8 @@ class ScrollAccessibilityService : AccessibilityService() {
             instance?.scroll(deltaY)
         }
         
+        // Removed horizontal swipe - not needed per requirements
+        
         fun setEnabled(enabled: Boolean) {
             instance?.isEnabled = enabled
         }
@@ -34,6 +36,7 @@ class ScrollAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        android.util.Log.d("ScrollService", "Accessibility service connected")
     }
 
     override fun onDestroy() {
@@ -50,8 +53,12 @@ class ScrollAccessibilityService : AccessibilityService() {
     }
 
     private fun scroll(deltaY: Int) {
-        if (!isEnabled) return
+        if (!isEnabled) {
+            android.util.Log.w("ScrollService", "Scroll called but service is disabled")
+            return
+        }
         
+        android.util.Log.d("ScrollService", "Performing scroll: $deltaY")
         serviceScope.launch {
             try {
                 // Perform scroll gesture directly without finding scrollable node
@@ -60,44 +67,45 @@ class ScrollAccessibilityService : AccessibilityService() {
                 dispatchGesture(gesture, object : GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription?) {
                         super.onCompleted(gestureDescription)
+                        android.util.Log.d("ScrollService", "Scroll gesture completed")
                     }
                     
                     override fun onCancelled(gestureDescription: GestureDescription?) {
                         super.onCancelled(gestureDescription)
+                        android.util.Log.w("ScrollService", "Scroll gesture cancelled")
                     }
                 }, null)
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("ScrollService", "Error performing scroll", e)
             }
         }
     }
 
+    // Removed horizontal swipe - not needed per requirements
+
 
     private fun createScrollGesture(deltaY: Int): GestureDescription {
-        val startX = 540f // Center of 1080p screen
-        val startY = 1500f // Start lower for more swipe range
+        // Get screen dimensions for better gesture accuracy
+        val displayMetrics = resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels.toFloat()
+        val screenHeight = displayMetrics.heightPixels.toFloat()
+        
+        val startX = screenWidth / 2f // Center of screen
+        val startY = screenHeight * 0.7f // Start at 70% down the screen
         
         // Android swipe direction is inverted for scrolling
         // To SCROLL DOWN -> Swipe UP (startY -> smaller endY)
         // To SCROLL UP -> Swipe DOWN (startY -> larger endY)
         
-        // We amplify deltaY for standard scrolling to make it more definitive
-        // For YouTube/TikTok we need a strong vertical motion
-        val swipeAmplify = if (Math.abs(deltaY) >= 1000) {
-            // This is a navigation swipe (shake) - make it a full screen swipe
-            1200
-        } else {
-            deltaY * 3 // Regular scroll
-        }
-        
-        val endY = (startY - (if (deltaY > 0) swipeAmplify else -swipeAmplify)).coerceIn(200f, 2200f)
+        // Amplify deltaY for standard scrolling
+        val swipeAmplify = deltaY * 2
+        val endY = (startY - swipeAmplify).coerceIn(screenHeight * 0.1f, screenHeight * 0.9f)
         
         val path = Path()
         path.moveTo(startX, startY)
         path.lineTo(startX, endY)
         
-        // YouTube Shorts/TikTok require very fast, short duration swipes to trigger navigation
-        val duration = if (Math.abs(deltaY) >= 1000) 40L else 100L 
+        val duration = 150L // Smooth scroll duration
         
         val strokeDescription = GestureDescription.StrokeDescription(path, 0, duration)
         val gestureDescription = GestureDescription.Builder()
@@ -106,4 +114,6 @@ class ScrollAccessibilityService : AccessibilityService() {
         
         return gestureDescription
     }
+
+    // Removed horizontal swipe - not needed per requirements
 }

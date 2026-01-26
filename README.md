@@ -4,11 +4,12 @@ An Android application that allows users to scroll their phone screen remotely u
 
 ## Features
 
-- **Hand Detection**: Uses MediaPipe to detect hands and raised fingers in real-time
-- **Two-Finger Gesture**: Detects when two fingers are raised and tracks their vertical movement
+- **Hand Detection**: Uses MediaPipe Hand Landmarker to detect hands in real-time
+- **Simple Gestures**: Open palm for scrolling, closed fist for pause
 - **System-Wide Scrolling**: Uses Accessibility Services to scroll any app on the device
 - **Real-Time Processing**: Processes camera frames continuously for smooth gesture recognition
 - **Smart Thresholds**: Ignores accidental small movements to prevent unwanted scrolling
+- **Distance-Friendly**: Works from arm's length or more, similar to TikTok/YouTube gesture controls
 
 ## Technical Stack
 
@@ -67,11 +68,13 @@ An Android application that allows users to scroll their phone screen remotely u
 1. **Launch the app** - The camera preview will appear
 2. **Grant permissions** - Ensure both camera and accessibility permissions are granted
 3. **Enable Gesture Scrolling** - Tap the "Enable Gesture Scrolling" button
-4. **Position your hand** - Hold up two fingers in front of the rear camera
+4. **Position your hand** - Show your open palm facing the camera
 5. **Scroll**:
-   - Move fingers **up** → Scrolls **down** on screen
-   - Move fingers **down** → Scrolls **up** on screen
-6. **Disable** - Tap "Disable Gesture Scrolling" to stop
+   - **Open palm moving DOWN** → Scrolls **DOWN** on screen
+   - **Open palm moving UP** → Scrolls **UP** on screen
+6. **Pause**: **Close fist and hold steady for 0.5 seconds** → Pauses scrolling
+7. **Resume**: **Show open palm and hold steady** → Resumes scrolling
+8. **Disable** - Tap "Disable Gesture Scrolling" to stop
 
 ## Project Structure
 
@@ -100,16 +103,19 @@ app/src/main/
 - Integrates hand detection with scroll controller
 
 ### HandDetectionAnalyzer
-- Processes camera frames using MediaPipe
-- Detects hands and identifies raised fingers
-- Extracts finger tip positions (normalized coordinates)
-- Filters for exactly two raised fingers
+- Processes camera frames using MediaPipe Hand Landmarker
+- Detects open palm gesture (4+ fingers raised)
+- Detects closed fist gesture (4+ fingers closed)
+- Extracts palm center position (wrist) for movement tracking
+- Returns gesture state and palm position
 
 ### GestureScrollController
-- Tracks finger movement over time
-- Calculates scroll direction and amount
+- Tracks palm movement over time
+- Calculates scroll direction (up/down) based on palm movement
+- Detects pause gesture (closed fist held steady for 0.5s)
+- Detects resume gesture (open palm held steady)
 - Applies thresholds to ignore small movements
-- Converts normalized finger movement to scroll pixels
+- Converts normalized palm movement to scroll pixels
 
 ### ScrollAccessibilityService
 - Implements AccessibilityService for system-wide access
