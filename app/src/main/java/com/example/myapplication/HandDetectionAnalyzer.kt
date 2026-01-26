@@ -80,14 +80,17 @@ class HandDetectionAnalyzer(
             // Incorrect timestamps (nanos instead of millis) can cause the pipeline to stall or flicker.
             val timestampMs = imageProxy.imageInfo.timestamp / 1_000_000
             
-            handLandmarker?.detectAsync(mpImage, timestampMs)
+            // Explicitly verify timestamp is valid for MediaPipe
+            if (timestampMs > 0) {
+                handLandmarker?.detectAsync(mpImage, timestampMs)
+            }
         } catch (e: Exception) {
             Log.e("HandDetection", "Error analyzing image", e)
-            isProcessing.set(false)
         } finally {
             // Always close the imageProxy to return the buffer to the camera pipeline.
             // Failing to close this promptly is the #1 cause of camera freezing/blinking.
             imageProxy.close()
+            isProcessing.set(false)
         }
     }
 
