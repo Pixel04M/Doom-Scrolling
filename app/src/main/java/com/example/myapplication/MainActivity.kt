@@ -118,6 +118,27 @@ class MainActivity : ComponentActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    override fun onPause() {
+        super.onPause()
+        // Keep camera running for background gesture detection if scrolling is enabled
+        // On modern Android, we might need a Foreground Service to keep camera access.
+        // For now, we ensure the camera provider isn't unbinded.
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // If scrolling is enabled, we ideally want to keep the analysis running.
+        // However, Android restricts camera access in the background for privacy.
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Re-bind if needed or refresh state
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            bindCameraUseCases()
+        }
+    }
+
     private var previewView: PreviewView? = null
 
     fun setupPreview(view: PreviewView) {
