@@ -49,10 +49,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val lifecycleObserver = androidx.lifecycle.LifecycleEventObserver { _, event ->
+        if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+            val newState = checkAllPermissions()
+            // We'll use a local state in the UI to react to this
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
+        lifecycle.addObserver(lifecycleObserver)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
         setContent {
@@ -207,11 +215,25 @@ fun MainScreen(
     checkPermissions: () -> PermissionState
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val activity = context as? MainActivity
     val permissions = remember { mutableStateOf(checkPermissions()) }
     val isScrollingEnabled = remember { mutableStateOf(false) }
     val scrollStatus = remember { mutableStateOf("Ready") }
     val previewView = remember { PreviewView(context) }
+
+    // Listen for lifecycle changes (like returning from settings) to refresh permissions
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                permissions.value = checkPermissions()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     LaunchedEffect(Unit) {
         permissions.value = checkPermissions()
