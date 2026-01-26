@@ -14,34 +14,34 @@ class GestureScrollController {
     data class FingerPosition(val x: Float, val y: Float)
     
     fun processFingerMovement(
-        finger1: FingerPosition?,
-        finger2: FingerPosition?
+        fingers: List<FingerPosition>?
     ): Int? {
         val currentTime = System.currentTimeMillis()
         
-        // Need both fingers to scroll
-        if (finger1 == null || finger2 == null) {
-            previousFinger1Y = null
-            previousFinger2Y = null
+        // PAUSE gesture (empty list from analyzer)
+        if (fingers != null && fingers.isEmpty()) {
+            reset()
+            return null
+        }
+
+        // Need exactly one finger (index finger) to scroll
+        if (fingers == null || fingers.size != 1) {
+            reset()
             return null
         }
         
-        // Calculate average Y position of both fingers
-        val currentAvgY = (finger1.y + finger2.y) / 2f
+        val currentFinger = fingers[0]
         
-        // Initialize previous positions if needed
-        if (previousFinger1Y == null || previousFinger2Y == null) {
-            previousFinger1Y = finger1.y
-            previousFinger2Y = finger2.y
+        // Initialize previous position if needed
+        if (previousFinger1Y == null) {
+            previousFinger1Y = currentFinger.y
             return null
         }
         
-        val previousAvgY = (previousFinger1Y!! + previousFinger2Y!!) / 2f
-        val deltaY = currentAvgY - previousAvgY
+        val deltaY = currentFinger.y - previousFinger1Y!!
         
         // Check threshold and cooldown
         if (abs(deltaY) < scrollThreshold) {
-            // Don't update previous positions here to allow accumulation of small movements
             return null
         }
         
@@ -49,13 +49,12 @@ class GestureScrollController {
             return null
         }
         
-        // Calculate scroll amount based on movement speed and distance
-        // We use 3000f to make it very sensitive for distance
-        val scrollAmount = (deltaY * 3000f).toInt().coerceIn(-600, 600)
+        // Amplify movement for YouTube Shorts/TikTok
+        // 4000f makes it very responsive for flicking videos
+        val scrollAmount = (deltaY * 4000f).toInt().coerceIn(-800, 800)
         
-        // Update previous positions
-        previousFinger1Y = finger1.y
-        previousFinger2Y = finger2.y
+        // Update previous position
+        previousFinger1Y = currentFinger.y
         lastScrollTime = currentTime
         
         Log.d("GestureScroll", "DeltaY: $deltaY, ScrollAmount: $scrollAmount")

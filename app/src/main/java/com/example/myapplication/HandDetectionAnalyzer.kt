@@ -103,17 +103,29 @@ class HandDetectionAnalyzer(
                 return
             }
 
-            val validFingers = mutableListOf<GestureScrollController.FingerPosition>()
-            
+            // Check for five fingers raised (pause gesture)
+            val isFiveFingersRaised = hands.any { hand ->
+                countRaisedFingers(hand) >= 5
+            }
+
+            if (isFiveFingersRaised) {
+                onHandsDetected(emptyList()) // Special case: empty list means PAUSE
+                return
+            }
+
+            // Find index finger position for scrolling
+            val indexFingerPos = mutableListOf<GestureScrollController.FingerPosition>()
             for (hand in hands) {
-                val fingerTips = extractFingerTips(hand)
-                if (fingerTips.size >= 2) {
-                    validFingers.addAll(fingerTips.take(2))
+                val raisedFingers = extractRaisedFingers(hand)
+                // If only index finger is raised (index is typically index 8)
+                if (raisedFingers.size == 1 && isIndexFinger(hand)) {
+                    indexFingerPos.add(raisedFingers[0])
+                    break
                 }
             }
             
-            if (validFingers.size == 2) {
-                onHandsDetected(validFingers)
+            if (indexFingerPos.isNotEmpty()) {
+                onHandsDetected(indexFingerPos)
             } else {
                 onHandsDetected(null)
             }
@@ -123,29 +135,43 @@ class HandDetectionAnalyzer(
         }
     }
 
-    private fun extractFingerTips(hand: List<NormalizedLandmark>): List<GestureScrollController.FingerPosition> {
-        val fingerTips = mutableListOf<GestureScrollController.FingerPosition>()
+    private fun countRaisedFingers(hand: List<NormalizedLandmark>): Int {
+        var count = 0
         val fingerTipIndices = listOf(4, 8, 12, 16, 20)
+        for (index in fingerTipIndices) {
+            if (isFingerRaised(hand, index)) count++
+        }
+        return count
+    }
+
+    private fun isIndexFinger(hand: List<NormalizedLandmark>): Boolean {
+        // Index finger tip is 8, base is 6
+        return isFingerRaised(hand, 8) && !isFingerRaised(hand, 12) && !isFingerRaised(hand, 16) && !isFingerRaised(hand, 20)
+    }
+
+    private fun isFingerRaised(hand: List<NormalizedLandmark>, tipIndex: Int): Boolean {
+        if (tipIndex >= hand.size) return false
+        val tipY = hand[tipIndex].y()
+        val baseY = when (tipIndex) {
+            4 -> if (hand.size > 3) hand[3].y() else tipY // Thumb
+            8 -> if (hand.size > 6) hand[6].y() else tipY // Index
+            12 -> if (hand.size > 10) hand[10].y() else tipY // Middle
+            16 -> if (hand.size > 14) hand[14].y() else tipY // Ring
+            20 -> if (hand.size > 18) hand[18].y() else tipY // Pinky
+            else -> tipY
+        }
+        return tipY < baseY - 0.03f
+    }
+
+    private fun extractRaisedFingers(hand: List<NormalizedLandmark>): List<GestureScrollController.FingerPosition> {
+        val fingerTips = mutableListOf<GestureScrollController.FingerPosition>()
+        val fingerTipIndices = listOf(8) // Only look for index finger tip
         
         for (index in fingerTipIndices) {
-            if (index < hand.size) {
-                val landmark = hand[index]
-                val tipY = landmark.y()
-                val baseY = when (index) {
-                    4 -> if (hand.size > 3) hand[3].y() else tipY
-                    8 -> if (hand.size > 6) hand[6].y() else tipY
-                    12 -> if (hand.size > 10) hand[10].y() else tipY
-                    16 -> if (hand.size > 14) hand[14].y() else tipY
-                    20 -> if (hand.size > 18) hand[18].y() else tipY
-                    else -> tipY
-                }
-                
-                if (tipY < baseY - 0.03f) { // Slightly lower threshold for distance (fingers appear smaller)
-                    fingerTips.add(GestureScrollController.FingerPosition(landmark.x(), landmark.y()))
-                }
+            if (isFingerRaised(hand, index)) {
+                fingerTips.add(GestureScrollController.FingerPosition(hand[index].x(), hand[index].y()))
             }
         }
-        
         return fingerTips
     }
 

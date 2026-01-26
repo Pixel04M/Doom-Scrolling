@@ -88,8 +88,8 @@ class ScrollAccessibilityService : AccessibilityService() {
         path.moveTo(startX, startY)
         path.lineTo(startX, endY)
         
-        // Use a short duration for more immediate scrolling
-        val strokeDescription = GestureDescription.StrokeDescription(path, 0, 80)
+        // Use a very short duration for "flicking" effect in Shorts/TikTok
+        val strokeDescription = GestureDescription.StrokeDescription(path, 0, 60)
         val gestureDescription = GestureDescription.Builder()
             .addStroke(strokeDescription)
             .build()

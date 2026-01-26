@@ -167,11 +167,17 @@ class MainActivity : ComponentActivity() {
             .build()
 
         handDetectionAnalyzer = HandDetectionAnalyzer(this) { fingers ->
-            if (fingers != null && fingers.size == 2) {
-                val scrollAmount = gestureScrollController.processFingerMovement(
-                    fingers[0],
-                    fingers[1]
-                )
+            if (fingers != null) {
+                if (fingers.isEmpty()) {
+                    // PAUSE GESTURE (Five fingers)
+                    runOnUiThread {
+                        scrollStatus.value = "Paused"
+                    }
+                    gestureScrollController.reset()
+                    return@HandDetectionAnalyzer
+                }
+
+                val scrollAmount = gestureScrollController.processFingerMovement(fingers)
                 scrollAmount?.let {
                     ScrollAccessibilityService.performScroll(it)
                     // Update status text based on scroll direction
