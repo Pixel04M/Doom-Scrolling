@@ -26,6 +26,20 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Fix for 16KB page size alignment issues in Android 15+
+            packaging {
+                jniLibs {
+                    useLegacyPackaging = true
+                }
+            }
+        }
+        debug {
+            // Fix for 16KB page size alignment issues in Android 15+
+            packaging {
+                jniLibs {
+                    useLegacyPackaging = true
+                }
+            }
         }
     }
     compileOptions {

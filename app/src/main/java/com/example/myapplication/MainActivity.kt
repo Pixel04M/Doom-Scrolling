@@ -121,13 +121,17 @@ class MainActivity : ComponentActivity() {
         val cameraProvider = cameraProvider ?: return
         val previewView = previewView ?: return
 
-        val preview = Preview.Builder().build().also {
-            it.setSurfaceProvider(previewView.surfaceProvider)
-        }
+        // Set resolution to a standard 4:3 or 16:9 for stability
+        val preview = Preview.Builder()
+            .setTargetResolution(android.util.Size(1280, 720))
+            .build().also {
+                it.setSurfaceProvider(previewView.surfaceProvider)
+            }
 
         val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
         val imageAnalysis = androidx.camera.core.ImageAnalysis.Builder()
+            .setTargetResolution(android.util.Size(1280, 720))
             .setBackpressureStrategy(androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
 
