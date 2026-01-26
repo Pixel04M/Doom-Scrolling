@@ -146,10 +146,15 @@ class HandDetectionAnalyzer(
 
     private fun isIndexFinger(hand: List<NormalizedLandmark>): Boolean {
         // Index finger tip is 8, base is 6
-        return isFingerRaised(hand, 8) && !isFingerRaised(hand, 12) && !isFingerRaised(hand, 16) && !isFingerRaised(hand, 20)
+        // Very strict check: Index raised, all other fingers closed
+        return isFingerRaised(hand, 8) && 
+               !isFingerRaised(hand, 12, 0.05f) && 
+               !isFingerRaised(hand, 16, 0.05f) && 
+               !isFingerRaised(hand, 20, 0.05f) &&
+               !isFingerRaised(hand, 4, 0.05f) // Include thumb for stability
     }
 
-    private fun isFingerRaised(hand: List<NormalizedLandmark>, tipIndex: Int): Boolean {
+    private fun isFingerRaised(hand: List<NormalizedLandmark>, tipIndex: Int, threshold: Float = 0.03f): Boolean {
         if (tipIndex >= hand.size) return false
         val tipY = hand[tipIndex].y()
         val baseY = when (tipIndex) {
@@ -160,7 +165,7 @@ class HandDetectionAnalyzer(
             20 -> if (hand.size > 18) hand[18].y() else tipY // Pinky
             else -> tipY
         }
-        return tipY < baseY - 0.03f
+        return tipY < baseY - threshold
     }
 
     private fun extractRaisedFingers(hand: List<NormalizedLandmark>): List<GestureScrollController.FingerPosition> {

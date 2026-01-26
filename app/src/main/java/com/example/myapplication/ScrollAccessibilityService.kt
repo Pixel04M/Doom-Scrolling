@@ -27,6 +27,8 @@ class ScrollAccessibilityService : AccessibilityService() {
         fun setEnabled(enabled: Boolean) {
             instance?.isEnabled = enabled
         }
+
+        fun isEnabled(): Boolean = instance?.isEnabled ?: false
     }
 
     override fun onServiceConnected() {

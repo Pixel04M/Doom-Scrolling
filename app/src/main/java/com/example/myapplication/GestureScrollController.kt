@@ -8,8 +8,8 @@ class GestureScrollController {
     private var previousFinger1Y: Float? = null
     private var previousFinger2Y: Float? = null
     private var lastScrollTime = 0L
-    private val scrollThreshold = 0.01f // Lowered threshold for distance detection (smaller movements)
-    private val scrollCooldown = 40L // Slightly faster scrolling
+    private val scrollThreshold = 0.005f // Even lower threshold for high sensitivity
+    private val scrollCooldown = 30L // Faster polling for smooth video app scrolling
     
     data class FingerPosition(val x: Float, val y: Float)
     
@@ -26,7 +26,6 @@ class GestureScrollController {
 
         // Need exactly one finger (index finger) to scroll
         if (fingers == null || fingers.size != 1) {
-            reset()
             return null
         }
         
@@ -35,6 +34,7 @@ class GestureScrollController {
         // Initialize previous position if needed
         if (previousFinger1Y == null) {
             previousFinger1Y = currentFinger.y
+            lastScrollTime = currentTime
             return null
         }
         
@@ -50,8 +50,8 @@ class GestureScrollController {
         }
         
         // Amplify movement for YouTube Shorts/TikTok
-        // 4000f makes it very responsive for flicking videos
-        val scrollAmount = (deltaY * 4000f).toInt().coerceIn(-800, 800)
+        // 5000f makes it extremely snappy for distance flicking
+        val scrollAmount = (deltaY * 5000f).toInt().coerceIn(-1000, 1000)
         
         // Update previous position
         previousFinger1Y = currentFinger.y

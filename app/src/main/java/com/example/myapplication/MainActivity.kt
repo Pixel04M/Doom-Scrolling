@@ -176,21 +176,30 @@ class MainActivity : ComponentActivity() {
                 if (fingers.isEmpty()) {
                     // PAUSE GESTURE (Five fingers)
                     runOnUiThread {
-                        _scrollStatus.value = "Paused"
+                        _scrollStatus.value = "PAUSED (Show Index to Resume)"
                     }
                     gestureScrollController.reset()
                     return@HandDetectionAnalyzer
                 }
 
                 val scrollAmount = gestureScrollController.processFingerMovement(fingers)
-                scrollAmount?.let {
-                    ScrollAccessibilityService.performScroll(it)
-                    // Update status text based on scroll direction
+                if (scrollAmount != null) {
+                    ScrollAccessibilityService.performScroll(scrollAmount)
                     runOnUiThread {
-                        _scrollStatus.value = if (it > 0) "Scrolled Down" else "Scrolled Up"
+                        _scrollStatus.value = if (scrollAmount > 0) "SCROLLING DOWN" else "SCROLLING UP"
+                    }
+                } else {
+                    // If index is detected but not moving enough, show "DETECTED"
+                    runOnUiThread {
+                        _scrollStatus.value = "INDEX DETECTED - Move to Scroll"
                     }
                 }
             } else {
+                runOnUiThread {
+                    if (ScrollAccessibilityService.isEnabled()) {
+                         _scrollStatus.value = "WAITING FOR GESTURE"
+                    }
+                }
                 gestureScrollController.reset()
             }
         }
