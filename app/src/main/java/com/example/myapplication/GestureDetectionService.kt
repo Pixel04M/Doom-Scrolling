@@ -120,14 +120,20 @@ class GestureDetectionService : Service(), LifecycleOwner {
                             when (result.action) {
                                 GestureScrollController.GestureAction.SCROLL_DOWN -> {
                                     if (ScrollAccessibilityService.isEnabled() && !gestureScrollController.isPaused()) {
+                                        android.util.Log.d("GestureService", "Sending SCROLL_DOWN to AccessibilityService")
                                         ScrollAccessibilityService.performScroll(result.scrollAmount)
                                         updateStatus("SCROLLING DOWN")
+                                    } else {
+                                        android.util.Log.d("GestureService", "SCROLL_DOWN skipped: enabled=${ScrollAccessibilityService.isEnabled()}, paused=${gestureScrollController.isPaused()}")
                                     }
                                 }
                                 GestureScrollController.GestureAction.SCROLL_UP -> {
                                     if (ScrollAccessibilityService.isEnabled() && !gestureScrollController.isPaused()) {
+                                        android.util.Log.d("GestureService", "Sending SCROLL_UP to AccessibilityService")
                                         ScrollAccessibilityService.performScroll(-result.scrollAmount)
                                         updateStatus("SCROLLING UP")
+                                    } else {
+                                        android.util.Log.d("GestureService", "SCROLL_UP skipped: enabled=${ScrollAccessibilityService.isEnabled()}, paused=${gestureScrollController.isPaused()}")
                                     }
                                 }
                                 GestureScrollController.GestureAction.PAUSE -> {

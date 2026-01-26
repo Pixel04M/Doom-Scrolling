@@ -359,7 +359,12 @@ class MainActivity : ComponentActivity() {
         
         // Update status after service starts
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            _scrollStatus.value = "Ready - Show index finger to scroll"
+            // Check if accessibility service is actually connected
+            if (ScrollAccessibilityService.getInstance() == null) {
+                _scrollStatus.value = "Accessibility Service NOT connected. Please enable it in Settings."
+            } else {
+                _scrollStatus.value = "Ready - Show index finger to scroll"
+            }
             bindCameraUseCases()
         }, 1500) // Longer delay to ensure service binds camera first
     }

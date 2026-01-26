@@ -17,26 +17,29 @@ class ScrollAccessibilityService : AccessibilityService() {
 
     companion object {
         private var instance: ScrollAccessibilityService? = null
+        private var isServiceEnabled = false
         
         fun getInstance(): ScrollAccessibilityService? = instance
         
         fun performScroll(deltaY: Int) {
+            android.util.Log.d("ScrollService", "Static performScroll called, instance: ${instance != null}")
             instance?.scroll(deltaY)
         }
         
-        // Removed horizontal swipe - not needed per requirements
-        
         fun setEnabled(enabled: Boolean) {
+            android.util.Log.d("ScrollService", "Static setEnabled: $enabled")
+            isServiceEnabled = enabled
             instance?.isEnabled = enabled
         }
 
-        fun isEnabled(): Boolean = instance?.isEnabled ?: false
+        fun isEnabled(): Boolean = isServiceEnabled
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        android.util.Log.d("ScrollService", "Accessibility service connected")
+        this.isEnabled = isServiceEnabled
+        android.util.Log.d("ScrollService", "Accessibility service connected, enabled: $isServiceEnabled")
     }
 
     override fun onDestroy() {
