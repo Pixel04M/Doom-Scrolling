@@ -23,8 +23,8 @@
 
 - Real-time **hand detection** with MediaPipe Hand Landmarker  
 - Super simple gestures:  
-  ✋ **Open palm** → scroll up/down  
-  👊 **Closed fist** → pause scrolling  
+   **Open palm** → scroll up/down  
+   **Closed fist** → pause scrolling  
 - **System-wide scrolling** — works in any app (thanks to Accessibility Service)  
 - Smooth & responsive — continuous camera frame processing  
 - Smart movement filtering — ignores tiny accidental twitches  
@@ -47,7 +47,7 @@ https://user-images.githubusercontent.com/xxxxxxxx/xxxxxx-xxxx-xxxx-xxxx-xxxxxxx
 
 ---
 
-### 🚀 Getting Started
+###  Getting Started
 
 #### Prerequisites
 
