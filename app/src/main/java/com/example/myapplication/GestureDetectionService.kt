@@ -73,6 +73,7 @@ class GestureDetectionService : Service(), LifecycleOwner {
                 handDetectionAnalyzer = HandDetectionAnalyzer(this) { fingers ->
                     if (fingers != null) {
                         if (fingers.isEmpty()) {
+                            // PAUSE GESTURE (Wide open hand)
                             if (ScrollAccessibilityService.isEnabled()) {
                                 ScrollAccessibilityService.setEnabled(false)
                             }
@@ -80,8 +81,12 @@ class GestureDetectionService : Service(), LifecycleOwner {
                             return@HandDetectionAnalyzer
                         }
 
-                        if (!ScrollAccessibilityService.isEnabled()) {
-                            ScrollAccessibilityService.setEnabled(true)
+                        // UNPAUSE GESTURE (Closed fist / punch)
+                        if (fingers.size == 1 && fingers[0].x == -1f) {
+                            if (!ScrollAccessibilityService.isEnabled()) {
+                                ScrollAccessibilityService.setEnabled(true)
+                            }
+                            return@HandDetectionAnalyzer
                         }
 
                         val result = gestureScrollController.processFingerMovement(fingers)
@@ -91,9 +96,11 @@ class GestureDetectionService : Service(), LifecycleOwner {
                                     ScrollAccessibilityService.performScroll(result.amount)
                                 }
                                 GestureScrollController.ScrollDirection.LEFT -> {
+                                    // Shake LEFT = Previous Video
                                     ScrollAccessibilityService.performScroll(-1000)
                                 }
                                 GestureScrollController.ScrollDirection.RIGHT -> {
+                                    // Shake RIGHT = Next Video
                                     ScrollAccessibilityService.performScroll(1000)
                                 }
                             }
