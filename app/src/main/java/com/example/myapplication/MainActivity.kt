@@ -111,6 +111,8 @@ class MainActivity : ComponentActivity() {
         cameraProviderFuture.addListener({
             try {
                 cameraProvider = cameraProviderFuture.get()
+                // Ensure we unbind before binding to avoid "already bound" blinking issues
+                cameraProvider?.unbindAll()
                 bindCameraUseCases()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -355,33 +357,53 @@ fun MainScreen(
 
         // Control Button
         if (permissions.value.hasCamera && permissions.value.hasAccessibility) {
-            Button(
-                onClick = {
-                    isScrollingEnabled.value = !isScrollingEnabled.value
-                    if (isScrollingEnabled.value) {
-                        onEnableScrolling()
-                        scrollStatus.value = "Scrolling Enabled"
-                    } else {
-                        onDisableScrolling()
-                        scrollStatus.value = "Ready"
-                    }
-                },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isScrollingEnabled.value) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    }
-                )
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = if (isScrollingEnabled.value) {
-                        "Disable Gesture Scrolling"
-                    } else {
-                        "Enable Gesture Scrolling"
-                    }
-                )
+                Button(
+                    onClick = {
+                        isScrollingEnabled.value = !isScrollingEnabled.value
+                        if (isScrollingEnabled.value) {
+                            onEnableScrolling()
+                            scrollStatus.value = "Scrolling Enabled"
+                        } else {
+                            onDisableScrolling()
+                            scrollStatus.value = "Ready"
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isScrollingEnabled.value) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
+                    )
+                ) {
+                    Text(
+                        text = if (isScrollingEnabled.value) {
+                            "Disable"
+                        } else {
+                            "Enable"
+                        }
+                    )
+                }
+
+                // Test Scrolling Buttons
+                Button(
+                    onClick = { ScrollAccessibilityService.performScroll(300) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Test Down")
+                }
+
+                Button(
+                    onClick = { ScrollAccessibilityService.performScroll(-300) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Test Up")
+                }
             }
         }
 
