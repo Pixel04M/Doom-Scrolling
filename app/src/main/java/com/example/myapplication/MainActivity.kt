@@ -39,9 +39,15 @@ class MainActivity : ComponentActivity() {
     private var handDetectionAnalyzer: HandDetectionAnalyzer? = null
     private val gestureScrollController = GestureScrollController()
     
+    private val PREFS_NAME = "ScrollablePrefs"
+    private val KEY_ENABLED = "gesture_scrolling_enabled"
+    
     // Create a mutable state that can be accessed by both Compose and the Analyzer
     private val _scrollStatus = mutableStateOf("Ready")
     val scrollStatusState: State<String> = _scrollStatus
+    
+    private val _isScrollingEnabledPersisted = mutableStateOf(false)
+    val isScrollingEnabledState: State<Boolean> = _isScrollingEnabledPersisted
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -64,6 +70,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
+        // Load persisted state
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        _isScrollingEnabledPersisted.value = prefs.getBoolean(KEY_ENABLED, false)
+        
+        if (_isScrollingEnabledPersisted.value) {
+            ScrollAccessibilityService.setEnabled(true)
+        }
+
         lifecycle.addObserver(lifecycleObserver)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
@@ -75,6 +89,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     MainScreen(
                         scrollStatus = scrollStatusState,
+                        isScrollingEnabledState = isScrollingEnabledState,
                         onEnableScrolling = { enableScrolling() },
                         onDisableScrolling = { disableScrolling() },
                         requestCameraPermission = { requestCameraPermission() },
@@ -247,11 +262,15 @@ class MainActivity : ComponentActivity() {
 
     private fun enableScrolling() {
         ScrollAccessibilityService.setEnabled(true)
+        _isScrollingEnabledPersisted.value = true
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, true).apply()
         _scrollStatus.value = "Scrolling Enabled"
     }
 
     private fun disableScrolling() {
         ScrollAccessibilityService.setEnabled(false)
+        _isScrollingEnabledPersisted.value = false
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, false).apply()
         gestureScrollController.reset()
         _scrollStatus.value = "Ready"
     }
@@ -285,6 +304,7 @@ data class PermissionState(
 @Composable
 fun MainScreen(
     scrollStatus: State<String>,
+    isScrollingEnabledState: State<Boolean>,
     onEnableScrolling: () -> Unit,
     onDisableScrolling: () -> Unit,
     requestCameraPermission: () -> Unit,
@@ -294,7 +314,6 @@ fun MainScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val activity = context as? MainActivity
     val permissions = remember { mutableStateOf(checkPermissions()) }
-    val isScrollingEnabled = remember { mutableStateOf(false) }
     val previewView = remember { PreviewView(context) }
 
     // Listen for lifecycle changes (like returning from settings) to refresh permissions
@@ -411,19 +430,15 @@ fun MainScreen(
         if (permissions.value.hasCamera && permissions.value.hasAccessibility) {
             Button(
                 onClick = {
-                    isScrollingEnabled.value = !isScrollingEnabled.value
-                    if (isScrollingEnabled.value) {
-                        onEnableScrolling()
-                        (activity as? MainActivity)?.let {
-                             // This is handled by the member variable now
-                        }
-                    } else {
+                    if (isScrollingEnabledState.value) {
                         onDisableScrolling()
+                    } else {
+                        onEnableScrolling()
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isScrollingEnabled.value) {
+                    containerColor = if (isScrollingEnabledState.value) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.primary
@@ -431,7 +446,7 @@ fun MainScreen(
                 )
             ) {
                 Text(
-                    text = if (isScrollingEnabled.value) {
+                    text = if (isScrollingEnabledState.value) {
                         "Disable Gesture Scrolling"
                     } else {
                         "Enable Gesture Scrolling"
