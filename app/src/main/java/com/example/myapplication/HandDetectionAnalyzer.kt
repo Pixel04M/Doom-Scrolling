@@ -103,12 +103,12 @@ class HandDetectionAnalyzer(
                 return
             }
 
-            // Check for five fingers raised (pause gesture)
-            val isFiveFingersRaised = hands.any { hand ->
+            // Check for wide open hand (pause gesture)
+            val isWideOpen = hands.any { hand ->
                 countRaisedFingers(hand) >= 5
             }
 
-            if (isFiveFingersRaised) {
+            if (isWideOpen) {
                 onHandsDetected(emptyList()) // Special case: empty list means PAUSE
                 return
             }
@@ -120,23 +120,23 @@ class HandDetectionAnalyzer(
             for (hand in hands) {
                 val raisedCount = countRaisedFingers(hand)
                 
-                // Index finger only for vertical scrolling
+                // Index finger only for vertical scrolling (Unpauses if was paused)
                 if (raisedCount == 1 && isIndexFinger(hand)) {
                     indexFingerPos.add(GestureScrollController.FingerPosition(hand[8].x(), hand[8].y()))
                     break
                 }
                 
-                // Palm (4 or 5 fingers) for horizontal swipes
+                // Palm/Open hand but not necessarily 5 fingers (e.g. 4 fingers) for horizontal
                 if (raisedCount >= 4) {
-                    palmPos.add(GestureScrollController.FingerPosition(hand[9].x(), hand[9].y())) // Use palm center (landmark 9)
+                    palmPos.add(GestureScrollController.FingerPosition(hand[9].x(), hand[9].y())) 
                     break
                 }
             }
             
             if (palmPos.isNotEmpty()) {
-                onHandsDetected(palmPos) // Send palm for horizontal tracking
+                onHandsDetected(palmPos)
             } else if (indexFingerPos.isNotEmpty()) {
-                onHandsDetected(indexFingerPos) // Send index for vertical tracking
+                onHandsDetected(indexFingerPos)
             } else {
                 onHandsDetected(null)
             }
