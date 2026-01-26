@@ -5,8 +5,12 @@ import kotlin.math.abs
 
 class GestureScrollController {
     
+    private var previousFinger1Y: Float? = null
     private var previousFinger1X: Float? = null
     private val horizontalThreshold = 0.08f // Threshold for horizontal shake/swipe
+    private val scrollThreshold = 0.005f // Even lower threshold for high sensitivity
+    private val scrollCooldown = 30L // Faster polling for smooth video app scrolling
+    private var lastScrollTime = 0L
     
     enum class ScrollDirection { VERTICAL, LEFT, RIGHT }
     data class ScrollResult(val direction: ScrollDirection, val amount: Int)
@@ -75,24 +79,6 @@ class GestureScrollController {
     fun reset() {
         previousFinger1Y = null
         previousFinger1X = null
-        lastScrollTime = 0L
-    }
-    
-    private fun calculateScrollAmount(deltaY: Float): Int {
-        // Convert normalized movement (0-1) to scroll amount
-        // Negative deltaY (fingers moving up) = fingers moving AWAY from bottom = scroll DOWN
-        // Positive deltaY (fingers moving down) = fingers moving TOWARDS bottom = scroll UP
-        
-        // We need to amplify the movement. 2000f gives more responsiveness.
-        val scrollAmount = (deltaY * 2000f).toInt()
-        
-        // Clamp scroll amount to reasonable range
-        return scrollAmount.coerceIn(-500, 500)
-    }
-    
-    fun reset() {
-        previousFinger1Y = null
-        previousFinger2Y = null
         lastScrollTime = 0L
     }
 }
