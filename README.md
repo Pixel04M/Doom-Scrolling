@@ -19,7 +19,7 @@
 
 ---
 
-### ✨ Features
+### Features
 
 - Real-time **hand detection** with MediaPipe Hand Landmarker  
 - Super simple gestures:  
